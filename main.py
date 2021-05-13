@@ -410,8 +410,16 @@ void main()
             else:
                 self.platforms.append(platform)
         def remove_out_of_range_columns(self):
-            while self.player.rect.pos.x - self.platforms[0].rect.size.x - self.platforms[0].rect.pos.x > 6000:
-                self.platforms.pop(0)
+            try:
+                while self.player.rect.pos.x - self.platforms[0].rect.size.x - self.platforms[0].rect.pos.x > 6000:
+                    self.platforms.pop(0)
+            except IndexError:
+                pass
+            try:
+                while self.player.rect.pos.x - self.obstacles[0].rect.size.x - self.obstacles[0].rect.pos.x > 6000:
+                    self.obstacles.pop(0)
+            except IndexError:
+                pass
                 
     class Window:
         class Mode(Enum):
