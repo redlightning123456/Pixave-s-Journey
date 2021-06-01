@@ -1,22 +1,22 @@
 # Pixave's Journey
 Python game made for a contest.
-Pixave's Journey is a simple platformer set in outer space where Pixave, the protagonist, is set
-on a mission to explore space. They move around via platforms (officially named "conveniently placed platforms").
+Pixave's Journey is a simple platformer set in outer space where Pixave, the protagonist, is on
+a mission to explore space. They move around via platforms (officially named "conveniently placed platforms").
 Most of the platforms are safe for Pixave's traversal. Some of them, however, include obstacles that
-may kill poor Pixave (then they are called "inconveniently placed platforms"). If Pixave dies, the
-game shuts down and the window is closed (Might change this later to a "game over" screen).
+may kill poor Pixave (then they are called "inconveniently placed platforms"). If Pixave dies, the game resets
+and you're back in the beginning.
 
 # Controls
 Jump with space (You can double jump), negate gravity with "s".
 
 # Goal
-Traverse as much distance as possible. Currently the most reliable way to measure this is via the star background.
+The counter in the top right of the screen represents your score. The higher the score the better.
 
 # How to run
 There must be an OpenGL >= 3.3 driver present in the system. If the program doesn't work with normal Python, try IDE. The
 main reason why the program might not start with normal Python seems to be related to the pyopengl\pyopengl_accelerate
 modules (i. e. https://stackoverflow.com/questions/61495735/unable-to-load-numpy-formathandler-accelerator-from-opengl-accelerate).
-Also Pixave's Journey depends on some packages. They can be installed by pip (or any analogue package manager) via the commands:
+Also Pixave's Journey depends on some packages. These can be installed by pip (or any analogue package manager) via the commands:
 pip install pyopengl pyopengl_accelerate
 pip install glfw
 pip install euclid
