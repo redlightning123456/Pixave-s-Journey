@@ -44,36 +44,50 @@ class Game:
     class World:
         def update(self):
             if self.player.has_lost():
-                glfw.terminate()
-                quit()
-            if (self.timer >= 240) and (not self._beat_dropped):
-                self.platform_texture.change_to("platform_on.png")
-                self._beat_dropped = True
-            self.player.rect.velocity.x = 300
-            self.player.respond_to_user_input()
-            self.player.do_gravity(self.delta_time)
+                if self._first_losing_iter:
+                    if with_sound:
+                        self.background_music.stop()
+                        self.losing_sound.play()
+                    self._first_losing_iter = False
 
-            self.remove_out_of_range_columns()
-            if (self.platforms[-1].rect.pos.x - self.player.rect.pos.x < 6000):
-                self.generate_column()
-            correction = Vector2(0, 0)
-            for platform in self.platforms:
-                if self.player.get_aabb().will_collide_with(platform.get_aabb(), self.delta_time):
-                    correction = self.player.get_aabb().collision_correction_vector(platform.get_aabb(), self.delta_time)
-                    self.player.rect.pos += correction
-                    self.player.jumps_left = 2
+                if (self.current_time - self.player.time_lost).total_seconds() > 2:
+                    self.reset()
 
-            for obstacle in self.obstacles:
-                if self.player.get_aabb().will_collide_with(obstacle.get_aabb(), self.delta_time):
-                    self.player.lose()
+                self.player.do_gravity(40 * self.delta_time)
+                self.player.rect.pos += self.player.rect.velocity * self.delta_time
+            else:
+                self.score = self.player.rect.pos.x / 100
+                if with_sound:
+                    if self.background_music.get_state() != AL_PLAYING:
+                        self.background_music.play()
+                if (self.timer >= 240) and (not self._beat_dropped):
+                    self.platform_texture.change_to("platform_on.png")
+                    self._beat_dropped = True
+                self.player.rect.velocity.x = 300
+                self.player.respond_to_user_input()
+                self.player.do_gravity(self.delta_time)
+
+                self.remove_out_of_range_columns()
+                if (self.platforms[-1].rect.pos.x - self.player.rect.pos.x < 6000):
+                    self.generate_column()
+                correction = Vector2(0, 0)
+                for platform in self.platforms:
+                    if self.player.get_aabb().will_collide_with(platform.get_aabb(), self.delta_time):
+                        correction = self.player.get_aabb().collision_correction_vector(platform.get_aabb(), self.delta_time)
+                        self.player.rect.pos += correction
+                        self.player.jumps_left = 2
+
+                for obstacle in self.obstacles:
+                    if self.player.get_aabb().will_collide_with(obstacle.get_aabb(), self.delta_time):
+                        self.player.lose(self.current_time)
               
-            self.player.rect.pos += self.player.rect.velocity * self.delta_time
+                self.player.rect.pos += self.player.rect.velocity * self.delta_time
             
-            if correction.x != 0:
-                self.player.rect.velocity.x = 0
-            if correction.y != 0:
-                self.player.rect.velocity.y = 0
-            self.cam.pos = self.player.rect.pos + Vector2(1800, 0)
+                if correction.x != 0:
+                    self.player.rect.velocity.x = 0
+                if correction.y != 0:
+                    self.player.rect.velocity.y = 0
+                self.cam.pos = self.player.rect.pos + Vector2(1800, 0)
             self.timer += self.delta_time
             new_time = datetime.datetime.now()
             self.delta_time = (new_time - self.current_time).total_seconds() * 10
@@ -236,11 +250,13 @@ void main()
                                """
 #version 330
 uniform sampler2D tex;
+uniform vec2 textureFactors = vec2(1, 1);
+uniform vec2 textureCenter = vec2(0, 0);
 out vec4 fragColor;
 in vec2 texturePos;
 void main()
 {
-    fragColor = texture(tex, texturePos);
+    fragColor = texture(tex, texturePos * textureFactors + textureCenter);
 }
 """)
                 glCompileShader(vertex_shader)
@@ -262,13 +278,15 @@ void main()
                 self.velocity = velocity
             def get_aabb(self):
                 return Game.World.AABB(self.pos - self.size, self.pos + self.size, self.velocity)
-            def draw(self, cam, factors = Vector2(1, 1)):
+            def draw(self, cam, rectangle_factors = Vector2(1, 1), texture_center = Vector2(0, 0), texture_factors = Vector2(1, 1)):
                 glUseProgram(Game.World.TexturedRectangle.shader_program)
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "rectanglePos"), self.pos.x, self.pos.y)
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "rectangleSize"), self.size.x, self.size.y)
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "camPos"), cam.pos.x, cam.pos.y)
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "camScale"), cam.scale.x, cam.scale.y)
-                glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "factors"), factors.x, factors.y)
+                glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "factors"), rectangle_factors.x, rectangle_factors.y)
+                glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "textureFactors"), texture_factors.x, texture_factors.y)
+                glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "textureCenter"), texture_center.x, texture_center.y)
                 
                 glActiveTexture(GL_TEXTURE0)
                 glBindTexture(GL_TEXTURE_2D, self.texture.ID)
@@ -281,7 +299,7 @@ void main()
         class Player:
             jump_sound = None
             _first_instance = True
-            
+            time_lost = None
             def __init__(self, pos, size, window):
                 if Game.World.Player._first_instance:
                     if with_sound:
@@ -319,11 +337,15 @@ void main()
                 return self.rect.get_aabb()
             def draw(self, cam):
                 self.rect.draw(cam, Vector2(1, -self.gravity_direction))
-            def lose(self):
+            def lose(self, time):
+                self.time_lost = time
+                self.rect.velocity = Vector2(0, -500 * self.gravity_direction)
                 self._has_lost = True
                 self.rect.texture.change_to("player_dead.png")
             def reset(self):
                 self._has_lost = False
+                self.time_lost = None
+                self.rect.texture.change_to("player_idle.png")
             def has_lost(self):
                 return self._has_lost
         class Platform:
@@ -344,7 +366,10 @@ void main()
 
         
         def draw(self):
-            self.background_stars.draw(self.Cam(self.cam.pos, self.cam.scale * 64))
+            for x in range(-1, 2):
+                for y in range(-1, 2):
+                    self.background_stars.pos = 128 * Vector2(1920 * 2 * 2 * ((self.cam.pos.x * 64) // (128 * 2 * 2 * 64 * 1920) + x), 1080 * 2 * ((self.cam.pos.y * 64) // (128 * 1080 * 2 * 64) + y))
+                    self.background_stars.draw(self.Cam(self.cam.pos, self.cam.scale * 64))
             self.player.draw(self.cam)
             for obstacle in self.obstacles:
                 obstacle.draw(self.cam)
@@ -352,22 +377,54 @@ void main()
                 platform.draw(self.cam)
             if self.timer >= 225 and self.timer <= 240:
                 self.Rectangle(Vector2(0, 0), Vector2(1920, 1080)).draw(((self.timer - 225) / 15, (self.timer - 225) / 15, (self.timer - 225) / 15, (self.timer - 225) / 15), self.Cam(Vector2(0, 0), Vector2(1, 1)))
+
+            self.screen.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)))
+            self._draw_score()
+            
+        def _draw_score(self):
+            self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(6, 1), Vector2(0, 0), Vector2(6/16, 1))
+            score = int(self.score)
+
+            digits = []
+
+            if score == 0:
+                digits = [0]
+                
+            while score > 0:
+                digits.append(score % 10)
+                score //= 10
+
+            self.score_message.pos += Vector2(4 * 8 * 6, 0)
+                
+            for digit in digits[::-1]:
+                self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(1, 1), Vector2((6+digit)/16, 0), Vector2(1/16, 1))
+                self.score_message.pos += Vector2(4 * 8 * 2, 0)
+            self.score_message.pos -= Vector2(4 * 8 * (6+2*len(digits)), 0)
+        
         def __init__(self, window):
             self._beat_dropped = False
             self.timer = 0
             self.delta_time = 0
+            self.score = 0
             self.current_time = datetime.datetime.now()
             self.cam = self.Cam(Vector2(0, 0), Vector2(2, 2))
             self.player = self.Player(Vector2(0, -500), 10 * Vector2(10, 9), window)
 
+            self.background_music = oalOpen("into_the_depths_of_space.ogg")
+            self.losing_sound = oalOpen("sad_beep.ogg")
 
+            self._first_losing_iter = True
+            
             self.TexturedRectangle.enable_drawing()
+
 
             self.platform_texture = self.Texture("platform_off.png")
             self.platform_danger_texture = self.Texture("platform_danger.png")
             self.laser_beam_vertical_texture = self.Texture("laser_beam_vertical.png")
             self.force_field_texture = self.Texture("force_field.png")
             self.background_stars = self.TexturedRectangle(Vector2(0, 0), Vector2(1920 * 2, 1080) * 128, self.Texture("background_stars.png"))
+            self.score_message = self.TexturedRectangle(Vector2(1260, 700), 4 * Vector2(8, 10), self.Texture("score_message.png"))
+            self.screen = self.TexturedRectangle(Vector2(1408, 700), 16 * Vector2(32, 20), self.Texture("screen.png"))
             
             self.platforms = []
             self.platforms.append(self.Platform(Vector2(0, -1000), 10 * Vector2(30, 16), self.platform_texture))
@@ -384,7 +441,6 @@ void main()
 
             self.obstacles = []
 
-            self.x = 0
         def generate_column(self):
             last_platform = self.platforms[-1]
             self.generate_platform(self.Platform(Vector2(last_platform.rect.pos.x + 600, self.player.rect.pos.y + 320 * random.randint(-72, -56)), 10 * Vector2(30, 16), self.platform_texture))
@@ -420,7 +476,35 @@ void main()
                     self.obstacles.pop(0)
             except IndexError:
                 pass
-                
+        def reset(self):
+            self._beat_dropped = False
+            self.timer = 0
+            self.delta_time = 0
+            self.score = 0
+            self.current_time = datetime.datetime.now()
+            self.cam = self.Cam(Vector2(0, 0), Vector2(2, 2))
+            self.player.rect.pos = Vector2(0, -500)
+            self.player.rect.velocity = Vector2(0, 0)
+            self.player.gravity_direction = -1
+            self._first_losing_iter = True
+            self.player.reset()
+
+            self.platform_texture.change_to("platform_off.png")
+            
+            self.platforms = []
+            self.platforms.append(self.Platform(Vector2(0, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(600, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(1200, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(1800, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(2400, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(3000, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(3600, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(4200, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(4800, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(5400, -1000), 10 * Vector2(30, 16), self.platform_texture))
+            self.platforms.append(self.Platform(Vector2(6000, -1000), 10 * Vector2(30, 16), self.platform_texture))
+
+            self.obstacles = []
     class Window:
         class Mode(Enum):
             windowed = 0
@@ -450,9 +534,6 @@ void main()
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         self.world = self.World(self.window)
     def start_loop(self):
-        if with_sound:
-            background_music = oalOpen("into_the_depths_of_space.ogg")
-            background_music.play()
         self.world.current_time = datetime.datetime.now()
         while not glfw.window_should_close(self.window.handle):
             self.update()
