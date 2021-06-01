@@ -1,9 +1,6 @@
 #Make sure you have the numpy, imageio, pyogg, pyopenal, glfw, pyopengl, and euclid modules installed in order to run this program.
-#To any future readers: this code is an absolute mess because I thought the turning in date was 03.06.2021 while it was actually 13.05.2021. Realized that on 07.05.2021.
-#There is a lot of stuff to improve. A few examples:
-#1. Collision detection isn't continuous, so a bullet that moves very fast can pass through other objects without colliding with them.
-#2. Collideable objects aren't grouped into optimized structures e. g. octree or bvh.
-#3. Lack of features that were present in my original vision.
+#To any future readers: this code is an absolute mess. There is a lot to improve. However, this is just a Python game originally
+#made for a contest so I pretty much tried rushed the code here.
 
 with_sound = True
 
