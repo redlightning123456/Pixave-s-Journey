@@ -53,7 +53,7 @@ class Game:
                 self.player.do_gravity(40 * self.delta_time)
                 self.player.rect.pos += self.player.rect.velocity * self.delta_time
             else:
-                self.score = self.player.rect.pos.x / 100
+                self.current_score = self.player.rect.pos.x / 100
                 if with_sound:
                     if self.background_music.get_state() != AL_PLAYING:
                         self.background_music.play()
@@ -379,30 +379,62 @@ void main()
             self._draw_score()
             
         def _draw_score(self):
-            self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(6, 1), Vector2(0, 0), Vector2(6/16, 1))
-            score = int(self.score)
+            self.score_message.pos = Vector2(self.screen.pos.x, self.screen.pos.y+224)
+            self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(5, 1), Vector2(0, 0), Vector2(5/31, 1))
 
-            digits = []
 
-            if score == 0:
-                digits = [0]
+            #current
+            self.score_message.pos = Vector2(self.screen.pos.x - 200, self.screen.pos.y + 64)
+            self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(8, 1), Vector2(15/31, 0), Vector2(8/31, 1))
+
+            current_score = int(self.current_score)
+
+            current_score_digits = []
+
+            if current_score == 0:
+                current_score_digits = [0]
                 
-            while score > 0:
-                digits.append(score % 10)
-                score //= 10
+            while current_score > 0:
+                current_score_digits.append(current_score % 10)
+                current_score //= 10
 
-            self.score_message.pos += Vector2(4 * 8 * 6, 0)
-                
-            for digit in digits[::-1]:
-                self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(1, 1), Vector2((6+digit)/16, 0), Vector2(1/16, 1))
+            self.score_message.pos += Vector2(4 * 8 * 8, 0)
+            for digit in current_score_digits[::-1]:
+                self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(1, 1), Vector2((5+digit)/31, 0), Vector2(1/31, 1))
                 self.score_message.pos += Vector2(4 * 8 * 2, 0)
-            self.score_message.pos -= Vector2(4 * 8 * (6+2*len(digits)), 0)
-        
+
+
+            #highest
+            self.score_message.pos = Vector2(self.screen.pos.x - 200, self.screen.pos.y - 96)
+            self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(8, 1), Vector2(23/31, 0), Vector2(8/31, 1))
+
+            if self.highest_score < self.current_score:
+                self.highest_score = self.current_score
+            
+            highest_score = int(self.highest_score)
+
+            highest_score_digits = []
+
+            if highest_score == 0:
+                highest_score_digits = [0]
+                
+            while highest_score > 0:
+                highest_score_digits.append(highest_score % 10)
+                highest_score //= 10
+
+            self.score_message.pos += Vector2(4 * 8 * 8, 0)
+            for digit in highest_score_digits[::-1]:
+                self.score_message.draw(self.Cam(Vector2(0, 0), Vector2(1, 1)), Vector2(1, 1), Vector2((5+digit)/31, 0), Vector2(1/31, 1))
+                self.score_message.pos += Vector2(4 * 8 * 2, 0)
+
+            self.score_message.pos = self.screen.pos
+            
         def __init__(self, window):
             self._beat_dropped = False
             self.timer = 0
             self.delta_time = 0
-            self.score = 0
+            self.current_score = 0
+            self.highest_score = 0
             self.current_time = datetime.datetime.now()
             self.cam = self.Cam(Vector2(0, 0), Vector2(2, 2))
             self.player = self.Player(Vector2(0, -500), 10 * Vector2(10, 9), window)
@@ -420,8 +452,8 @@ void main()
             self.laser_beam_vertical_texture = self.Texture("laser_beam_vertical.png")
             self.force_field_texture = self.Texture("force_field.png")
             self.background_stars = self.TexturedRectangle(Vector2(0, 0), Vector2(1920 * 2, 1080) * 128, self.Texture("background_stars.png"))
-            self.score_message = self.TexturedRectangle(Vector2(1260, 700), 4 * Vector2(8, 10), self.Texture("score_message.png"))
             self.screen = self.TexturedRectangle(Vector2(1408, 700), 16 * Vector2(32, 20), self.Texture("screen.png"))
+            self.score_message = self.TexturedRectangle(self.screen.pos, 4 * Vector2(8, 10), self.Texture("score_message.png"))
             
             self.platforms = []
             self.platforms.append(self.Platform(Vector2(0, -1000), 10 * Vector2(30, 16), self.platform_texture))
