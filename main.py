@@ -20,7 +20,6 @@ import datetime
 def rotate(v, angle):
     return Vector2(v.x * math.cos(angle) - v.y * math.sin(angle), v.x * math.sin(angle) + v.y * math.cos(angle))
 
-
 def draw_vertex(x, y):
     glVertex2f(x / 1920, y / 1080)
 
@@ -236,6 +235,7 @@ uniform vec2 rectangleSize;
 uniform vec2 camPos = vec2(0, 0);
 uniform vec2 camScale = vec2(1, 1);
 uniform vec2 factors = vec2(1, 1);
+
 out vec2 texturePos;
 void main()
 {
@@ -284,6 +284,7 @@ void main()
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "factors"), rectangle_factors.x, rectangle_factors.y)
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "textureFactors"), texture_factors.x, texture_factors.y)
                 glUniform2f(glGetUniformLocation(Game.World.TexturedRectangle.shader_program, "textureCenter"), texture_center.x, texture_center.y)
+                
                 
                 glActiveTexture(GL_TEXTURE0)
                 glBindTexture(GL_TEXTURE_2D, self.texture.ID)
@@ -561,6 +562,7 @@ void main()
         glfw.make_context_current(self.window.handle)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glViewport(0, 0, 1920, 1080)
         self.world = self.World(self.window)
     def start_loop(self):
         self.world.current_time = datetime.datetime.now()
